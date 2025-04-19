@@ -6,8 +6,11 @@ use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Result, Seek, SeekFrom};
 use std::path::Path;
 
-const SAMPLE_THRESHOLD: u32 = 128 * 1024;
-const SAMPLE_SIZE: u32 = 16 * 1024;
+/// Default sample threshold value
+pub const SAMPLE_THRESHOLD: u32 = 128 * 1024;
+
+/// Default sample size value
+pub const SAMPLE_SIZE: u32 = 16 * 1024;
 
 /// A hasher which holds the custom sample parameters, and provides the APIs
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
