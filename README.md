@@ -46,4 +46,5 @@ for:
 The original project created by
 [Jim Kalafut](https://github.com/kalafut), check out https://github.com/kalafut/imohash
 
-License: MIT
+## [Changelog](CHANGELOG.md)
+## [License (MIT)](LICENSE)
