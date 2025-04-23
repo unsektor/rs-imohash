@@ -3,7 +3,7 @@
 //! It is based atop murmurhash3 and uses file size and sample data to construct the hash.
 
 use std::fs::File;
-use std::io::{BufReader, Cursor, Read, Result, Seek, SeekFrom};
+use std::io::{BufReader, Cursor, Error, Read, Result, Seek, SeekFrom};
 use std::path::Path;
 
 /// Default sample threshold value
@@ -46,7 +46,18 @@ impl Hasher {
 
     /// Hashes a file.
     pub fn sum_file<P: AsRef<Path>>(&self, path: P) -> Result<u128> {
-        let file_reader = File::open(path.as_ref().canonicalize()?)?;
+        let path = path.as_ref().canonicalize()?;
+
+        // allow only regular file, e.g. `/dev/random` will lead to memory leak
+        let metadata = std::fs::metadata(&path)?;
+        if !metadata.is_file() {
+            return Err(Error::other(format!(
+                "Path is not a file: {path:?}",
+                path = path
+            )));
+        }
+
+        let file_reader = File::open(path)?;
         let mut reader = BufReader::new(file_reader);
         self.hash(&mut reader)
     }
@@ -249,6 +260,26 @@ mod tests {
         let expected = "80a044c97d48f5702ed66776016de48d";
         let actual: u128 = hasher.sum_file("samples/system.evtx").unwrap();
         assert_eq!(expected, hex::encode(actual.to_le_bytes()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_sum_file_for_special_file() {
+        // negative test case
+        let hasher = Hasher::new();
+        let special_file_path = Path::new("/dev/random");
+        let result = hasher.sum_file(special_file_path);
+
+        match result {
+            Ok(_) => assert!(false),
+            Err(e) => assert_eq!(
+                e.to_string(),
+                format!(
+                    "Path is not a file: \"{}\"",
+                    special_file_path.to_str().unwrap()
+                )
+            ),
+        }
     }
 
     #[test]
