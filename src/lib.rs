@@ -20,7 +20,7 @@ pub struct Hasher {
 }
 
 impl Hasher {
-    /// Creates a new Hasher using the default sample size and sample threshhold values.
+    /// Creates a new Hasher using the default sample size and sample threshold values.
     pub fn new() -> Self {
         Self {
             sample_threshold: SAMPLE_THRESHOLD,
@@ -29,7 +29,7 @@ impl Hasher {
     }
 
     /// Creates a new Hasher using the provided sample size
-    /// and sample threshhold values. The entire file will be hashed
+    /// and sample threshold values. The entire file will be hashed
     /// (i.e. no sampling), if sampleSize < 1.
     pub fn with_sample_size_and_threshold(size: u32, threshold: u32) -> Self {
         Self {
@@ -38,13 +38,13 @@ impl Hasher {
         }
     }
 
-    /// Hashs a byte slice.
+    /// Hashes a byte slice.
     pub fn sum(&self, data: &[u8]) -> Result<u128> {
         let mut reader = BufReader::new(Cursor::new(data));
         self.hash(&mut reader)
     }
 
-    /// Hashs a file.
+    /// Hashes a file.
     pub fn sum_file(&self, path: &str) -> Result<u128> {
         let input_path = Path::new(path.trim());
         let path_canonicalized = input_path.canonicalize()?;
