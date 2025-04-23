@@ -117,6 +117,7 @@ fn put_uvarint(mut buffer: impl AsMut<[u8]>, x: u64) -> usize {
 mod tests {
     use super::*;
     use md5::{Digest, Md5};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use std::{fs, path::PathBuf};
 
     #[test]
@@ -132,13 +133,18 @@ mod tests {
         let test_data_dir = "test_data";
 
         if !Path::new(test_data_dir).exists() {
-            fs::create_dir(test_data_dir).unwrap();
+            fs::create_dir_all(test_data_dir).unwrap();
         }
 
         let mut path = PathBuf::new();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+
         path.push(test_data_dir);
-        path.push(name);
-        return path.to_str().unwrap().to_string();
+        path.push(format!("{}.{}", name, nanos.to_string()));
+        path.to_str().unwrap().to_string()
     }
 
     #[test]
@@ -159,6 +165,7 @@ mod tests {
             fs::write(&sample_file, empty_byte_array).unwrap();
             let h1 = default_hasher.sum_file(&sample_file).unwrap();
             let h2 = custom_hasher.sum_file(&sample_file).unwrap();
+            fs::remove_file(&sample_file).unwrap();
             assert_eq!(h1, h2);
         }
     }
@@ -250,7 +257,8 @@ mod tests {
         assert_eq!(
             hex::encode(hash.to_le_bytes()),
             "2d9123b54d37e9b8f94ab37a7eca6f40"
-        )
+        );
+        fs::remove_file(&sample_file).unwrap();
     }
 
     #[test]
