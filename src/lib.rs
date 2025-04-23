@@ -45,12 +45,9 @@ impl Hasher {
     }
 
     /// Hashes a file.
-    pub fn sum_file(&self, path: &str) -> Result<u128> {
-        let input_path = Path::new(path.trim());
-        let path_canonicalized = input_path.canonicalize()?;
-        let path_os_string = path_canonicalized.as_os_str();
-        let f = File::open(path_os_string)?;
-        let mut reader = BufReader::new(f);
+    pub fn sum_file<P: AsRef<Path>>(&self, path: P) -> Result<u128> {
+        let file_reader = File::open(path.as_ref().canonicalize()?)?;
+        let mut reader = BufReader::new(file_reader);
         self.hash(&mut reader)
     }
 
@@ -251,6 +248,15 @@ mod tests {
         let hasher = Hasher::new();
         let expected = "80a044c97d48f5702ed66776016de48d";
         let actual: u128 = hasher.sum_file("samples/system.evtx").unwrap();
+        assert_eq!(expected, hex::encode(actual.to_le_bytes()));
+    }
+
+    #[test]
+    fn test_sum_file_with_generalized_path_type() {
+        let hasher = Hasher::new();
+        let expected = "80a044c97d48f5702ed66776016de48d";
+        let path = PathBuf::from("samples/system.evtx");
+        let actual: u128 = hasher.sum_file(path).unwrap();
         assert_eq!(expected, hex::encode(actual.to_le_bytes()));
     }
 
