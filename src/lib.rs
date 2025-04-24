@@ -275,8 +275,8 @@ mod tests {
     }
 
     #[cfg(windows)]
-    fn get_special_file() -> PathBuf {
-        PathBuf::from(r"\\.\CON")
+    fn get_special_file_path() -> &'static Path {
+        Path::new("\\\\.\\NUL")
     }
 
     #[test]
