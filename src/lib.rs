@@ -3,11 +3,14 @@
 //! It is based atop murmurhash3 and uses file size and sample data to construct the hash.
 
 use std::fs::File;
-use std::io::{BufReader, Cursor, Read, Result, Seek, SeekFrom};
+use std::io::{BufReader, Cursor, Error, Read, Result, Seek, SeekFrom};
 use std::path::Path;
 
-const SAMPLE_THRESHOLD: u32 = 128 * 1024;
-const SAMPLE_SIZE: u32 = 16 * 1024;
+/// Default sample threshold value
+pub const SAMPLE_THRESHOLD: u32 = 128 * 1024;
+
+/// Default sample size value
+pub const SAMPLE_SIZE: u32 = 16 * 1024;
 
 /// A hasher which holds the custom sample parameters, and provides the APIs
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -17,7 +20,7 @@ pub struct Hasher {
 }
 
 impl Hasher {
-    /// Creates a new Hasher using the default sample size and sample threshhold values.
+    /// Creates a new Hasher using the default sample size and sample threshold values.
     pub fn new() -> Self {
         Self {
             sample_threshold: SAMPLE_THRESHOLD,
@@ -26,7 +29,7 @@ impl Hasher {
     }
 
     /// Creates a new Hasher using the provided sample size
-    /// and sample threshhold values. The entire file will be hashed
+    /// and sample threshold values. The entire file will be hashed
     /// (i.e. no sampling), if sampleSize < 1.
     pub fn with_sample_size_and_threshold(size: u32, threshold: u32) -> Self {
         Self {
@@ -35,19 +38,27 @@ impl Hasher {
         }
     }
 
-    /// Hashs a byte slice.
+    /// Hashes a byte slice.
     pub fn sum(&self, data: &[u8]) -> Result<u128> {
         let mut reader = BufReader::new(Cursor::new(data));
         self.hash(&mut reader)
     }
 
-    /// Hashs a file.
-    pub fn sum_file(&self, path: &str) -> Result<u128> {
-        let input_path = Path::new(path.trim());
-        let path_canonicalized = input_path.canonicalize()?;
-        let path_os_string = path_canonicalized.as_os_str();
-        let f = File::open(path_os_string)?;
-        let mut reader = BufReader::new(f);
+    /// Hashes a file.
+    pub fn sum_file<P: AsRef<Path>>(&self, path: P) -> Result<u128> {
+        let path = path.as_ref().canonicalize()?;
+
+        // allow only regular file, e.g. `/dev/random` will lead to memory leak
+        let metadata = std::fs::metadata(&path)?;
+        if !metadata.is_file() {
+            return Err(Error::other(format!(
+                "Path is not a file: {path:?}",
+                path = path
+            )));
+        }
+
+        let file_reader = File::open(path)?;
+        let mut reader = BufReader::new(file_reader);
         self.hash(&mut reader)
     }
 
@@ -107,6 +118,7 @@ mod tests {
 
     use super::*;
     use md5::{Digest, Md5};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use std::{fs, path::PathBuf};
 
     #[test]
@@ -122,13 +134,18 @@ mod tests {
         let test_data_dir = "test_data";
 
         if !Path::new(test_data_dir).exists() {
-            fs::create_dir(test_data_dir).unwrap();
+            fs::create_dir_all(test_data_dir).unwrap();
         }
 
         let mut path = PathBuf::new();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+
         path.push(test_data_dir);
-        path.push(name);
-        return path.to_str().unwrap().to_string();
+        path.push(format!("{}.{}", name, nanos.to_string()));
+        path.to_str().unwrap().to_string()
     }
 
     #[test]
@@ -149,6 +166,7 @@ mod tests {
             fs::write(&sample_file, empty_byte_array).unwrap();
             let h1 = default_hasher.sum_file(&sample_file).unwrap();
             let h2 = custom_hasher.sum_file(&sample_file).unwrap();
+            fs::remove_file(&sample_file).unwrap();
             assert_eq!(h1, h2);
         }
     }
@@ -240,7 +258,8 @@ mod tests {
         assert_eq!(
             hex::encode(hash.to_le_bytes()),
             "2d9123b54d37e9b8f94ab37a7eca6f40"
-        )
+        );
+        fs::remove_file(&sample_file).unwrap();
     }
 
     #[test]
@@ -248,6 +267,35 @@ mod tests {
         let hasher = Hasher::new();
         let expected = "80a044c97d48f5702ed66776016de48d";
         let actual: u128 = hasher.sum_file("samples/system.evtx").unwrap();
+        assert_eq!(expected, hex::encode(actual.to_le_bytes()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_sum_file_for_special_file() {
+        // negative test case
+        let hasher = Hasher::new();
+        let special_file_path = Path::new("/dev/random");
+        let result = hasher.sum_file(special_file_path);
+
+        match result {
+            Ok(_) => assert!(false),
+            Err(e) => assert_eq!(
+                e.to_string(),
+                format!(
+                    "Path is not a file: \"{}\"",
+                    special_file_path.to_str().unwrap()
+                )
+            ),
+        }
+    }
+
+    #[test]
+    fn test_sum_file_with_generalized_path_type() {
+        let hasher = Hasher::new();
+        let expected = "80a044c97d48f5702ed66776016de48d";
+        let path = PathBuf::from("samples/system.evtx");
+        let actual: u128 = hasher.sum_file(path).unwrap();
         assert_eq!(expected, hex::encode(actual.to_le_bytes()));
     }
 
