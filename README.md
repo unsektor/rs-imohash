@@ -6,11 +6,10 @@ A rewritten version of [imohash](https://github.com/kalafut/imohash) in Rust.
 
 ## Usage
 
-Add this to your Cargo.toml:
+Add `imohash` as a dependency:
 
-```toml
-[dependencies]
-imohash = "0.1"
+```sh
+cargo add imohash
 ```
 
 then
@@ -46,4 +45,5 @@ for:
 The original project created by
 [Jim Kalafut](https://github.com/kalafut), check out https://github.com/kalafut/imohash
 
-License: MIT
+## [Changelog](CHANGELOG.md)
+## [License (MIT)](LICENSE)
